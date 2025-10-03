@@ -4,6 +4,8 @@ import (
 	"context"
 	"fmt"
 	"testing"
+
+	"github.com/google/uuid"
 )
 
 const (
@@ -128,7 +130,12 @@ func TestLoginUser(t *testing.T) {
 	fmt.Println("Testing GetUserByID")
 	fmt.Println("========================================")
 
-	user, err := service.GetUserByID(ctx, loginResp.ID)
+	userID, err := uuid.Parse(loginResp.ID)
+	if err != nil {
+		t.Fatalf("Failed to parse user ID: %v", err)
+	}
+
+	user, err := service.GetUserByID(ctx, userID)
 	if err != nil {
 		t.Errorf("GetUserByID failed: %v", err)
 	} else {
@@ -152,7 +159,7 @@ func TestLoginUser(t *testing.T) {
 		"role":         "admin",
 	}
 
-	updatedUser, err := service.UpdateUser(ctx, loginResp.ID, updates)
+	updatedUser, err := service.UpdateUser(ctx, userID, updates)
 	if err != nil {
 		t.Errorf("UpdateUser failed: %v", err)
 	} else {
@@ -184,7 +191,7 @@ func TestLoginUser(t *testing.T) {
 	fmt.Printf("User in cache before delete: %v\n", foundBeforeDelete)
 
 	// Delete user from Supabase and cache
-	err = service.DeleteUser(ctx, loginResp.ID)
+	err = service.DeleteUser(ctx, userID)
 	if err != nil {
 		t.Errorf("DeleteUser failed: %v", err)
 	} else {

@@ -42,13 +42,13 @@ type ServiceInterface interface {
 	LoginUser(ctx context.Context, email, password string) (*LoginResponse, error)
 
 	// GetUserByID retrieves a user by their ID from cache.
-	GetUserByID(ctx context.Context, userID string) (*User, error)
+	GetUserByID(ctx context.Context, userID uuid.UUID) (*User, error)
 
 	// UpdateUser updates a user's information in Supabase and cache.
-	UpdateUser(ctx context.Context, userID string, updates map[string]any) (*User, error)
+	UpdateUser(ctx context.Context, userID uuid.UUID, updates map[string]any) (*User, error)
 
 	// DeleteUser deletes a user from Supabase and removes from cache.
-	DeleteUser(ctx context.Context, userID string) error
+	DeleteUser(ctx context.Context, userID uuid.UUID) error
 }
 
 // NewService creates a new Supabase service instance.
@@ -241,24 +241,16 @@ func (s *Service) LoginUser(ctx context.Context, email, password string) (*Login
 
 // GetUserByID retrieves a user by their ID from the cache.
 // ctx is the context for request cancellation and timeout.
-// userID is the Supabase user unique identifier (string format).
+// userID is the Supabase user unique identifier (UUID).
 // Returns a User object with user details or an error if not found in cache.
-func (s *Service) GetUserByID(ctx context.Context, userID string) (*User, error) {
+func (s *Service) GetUserByID(ctx context.Context, userID uuid.UUID) (*User, error) {
 	var (
 		cachedUser *CachedUser
 		found      bool
-		parsedUUID uuid.UUID
-		err        error
 	)
 
-	// parse string to UUID
-	parsedUUID, err = uuid.Parse(userID)
-	if err != nil {
-		return nil, fmt.Errorf("invalid UUID format: %w", err)
-	}
-
 	// lookup user in cache by ID
-	cachedUser, found = s.Cache.GetByUserID(parsedUUID)
+	cachedUser, found = s.Cache.GetByUserID(userID)
 	if !found {
 		return nil, ErrUserNotFound
 	}
@@ -277,14 +269,13 @@ func (s *Service) GetUserByID(ctx context.Context, userID string) (*User, error)
 
 // UpdateUser updates a user's information in Supabase and refreshes the cache.
 // ctx is the context for request cancellation and timeout.
-// userID is the Supabase user unique identifier (string format).
+// userID is the Supabase user unique identifier (UUID).
 // updates is a map of fields to update (e.g., {"display_name": "New Name", "role": "admin"}).
 // Returns updated User object or an error if update fails.
-func (s *Service) UpdateUser(ctx context.Context, userID string, updates map[string]any) (*User, error) {
+func (s *Service) UpdateUser(ctx context.Context, userID uuid.UUID, updates map[string]any) (*User, error) {
 	var (
 		cachedUser *CachedUser
 		found      bool
-		parsedUUID uuid.UUID
 		url        string
 		reqBody    UpdateUserRequest
 		bodyBytes  []byte
@@ -292,14 +283,8 @@ func (s *Service) UpdateUser(ctx context.Context, userID string, updates map[str
 		err        error
 	)
 
-	// parse string to UUID
-	parsedUUID, err = uuid.Parse(userID)
-	if err != nil {
-		return nil, fmt.Errorf("invalid UUID format: %w", err)
-	}
-
 	// lookup user in cache to get access token
-	cachedUser, found = s.Cache.GetByUserID(parsedUUID)
+	cachedUser, found = s.Cache.GetByUserID(userID)
 	if !found {
 		return nil, ErrUserNotFound
 	}
@@ -351,24 +336,17 @@ func (s *Service) UpdateUser(ctx context.Context, userID string, updates map[str
 
 // DeleteUser deletes a user from Supabase and removes from cache.
 // ctx is the context for request cancellation and timeout.
-// userID is the Supabase user unique identifier (string format).
+// userID is the Supabase user unique identifier (UUID).
 // Returns an error if deletion fails.
 // Note: Requires service role key for admin operations.
-func (s *Service) DeleteUser(ctx context.Context, userID string) error {
+func (s *Service) DeleteUser(ctx context.Context, userID uuid.UUID) error {
 	var (
-		parsedUUID uuid.UUID
-		url        string
-		err        error
+		url string
+		err error
 	)
 
-	// parse string to UUID
-	parsedUUID, err = uuid.Parse(userID)
-	if err != nil {
-		return fmt.Errorf("invalid UUID format: %w", err)
-	}
-
 	// build delete endpoint URL with user ID
-	url = fmt.Sprintf("%s%s/%s", s.ProjectURL, DeleteUserPath, userID)
+	url = fmt.Sprintf("%s%s/%s", s.ProjectURL, DeleteUserPath, userID.String())
 
 	// send DELETE request to Supabase with service role key
 	_, err = s.HTTPClient.Ft_SupabaseSendRequest(ctx, "DELETE", url, nil, s.getServiceHeaders())
@@ -377,7 +355,7 @@ func (s *Service) DeleteUser(ctx context.Context, userID string) error {
 	}
 
 	// delete user from cache
-	s.Cache.DeleteByUserID(parsedUUID)
+	s.Cache.DeleteByUserID(userID)
 
 	return nil
 }

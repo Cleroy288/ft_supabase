@@ -191,20 +191,19 @@ Retrieves a user by their ID from the cache.
 ```go
 func (s *Service) GetUserByID(
     ctx context.Context,
-    userID string,
+    userID uuid.UUID,
 ) (*User, error)
 ```
 
 **Parameters:**
 - `ctx` - Context for request cancellation and timeout
-- `userID` - Supabase user unique identifier (UUID string format)
+- `userID` - Supabase user unique identifier (UUID)
 
 **Returns:**
 - `*User` - User object with all user details
-- `error` - Returns `ErrUserNotFound` if user not in cache or UUID parsing fails
+- `error` - Returns `ErrUserNotFound` if user not in cache
 
 **Behavior:**
-- Parses userID string to UUID
 - Looks up user in cache by UUID
 - Returns cached user data without making API call
 - Validates token expiration
@@ -218,14 +217,14 @@ Updates a user's information in Supabase and refreshes the cache.
 ```go
 func (s *Service) UpdateUser(
     ctx context.Context,
-    userID string,
+    userID uuid.UUID,
     updates map[string]any,
 ) (*User, error)
 ```
 
 **Parameters:**
 - `ctx` - Context for request cancellation and timeout
-- `userID` - Supabase user unique identifier (UUID string format)
+- `userID` - Supabase user unique identifier (UUID)
 - `updates` - Map of metadata fields to update (e.g., `{"display_name": "New Name", "role": "admin"}`)
 
 **Returns:**
@@ -247,13 +246,13 @@ Deletes a user from Supabase and removes from cache.
 ```go
 func (s *Service) DeleteUser(
     ctx context.Context,
-    userID string,
+    userID uuid.UUID,
 ) error
 ```
 
 **Parameters:**
 - `ctx` - Context for request cancellation and timeout
-- `userID` - Supabase user unique identifier (UUID string format)
+- `userID` - Supabase user unique identifier (UUID)
 
 **Returns:**
 - `error` - Error if deletion fails
@@ -590,9 +589,11 @@ fmt.Printf("Access token: %s\n", loginResp.Token)
 ### Get User by ID
 
 ```go
+userID, _ := uuid.Parse("550e8400-e29b-41d4-a716-446655440000")
+
 user, err := service.GetUserByID(
     context.Background(),
-    "550e8400-e29b-41d4-a716-446655440000",
+    userID,
 )
 if err != nil {
     log.Fatalf("Get user failed: %v", err)
@@ -604,6 +605,8 @@ fmt.Printf("User: %s (%s)\n", user.Username, user.Email)
 ### Update User Information
 
 ```go
+userID, _ := uuid.Parse("550e8400-e29b-41d4-a716-446655440000")
+
 updates := map[string]any{
     "display_name": "Alice Johnson",
     "role":         "admin",
@@ -611,7 +614,7 @@ updates := map[string]any{
 
 updatedUser, err := service.UpdateUser(
     context.Background(),
-    "550e8400-e29b-41d4-a716-446655440000",
+    userID,
     updates,
 )
 if err != nil {
@@ -624,9 +627,11 @@ fmt.Printf("Updated user: %s\n", updatedUser.DisplayName)
 ### Delete a User
 
 ```go
+userID, _ := uuid.Parse("550e8400-e29b-41d4-a716-446655440000")
+
 err := service.DeleteUser(
     context.Background(),
-    "550e8400-e29b-41d4-a716-446655440000",
+    userID,
 )
 if err != nil {
     log.Fatalf("Delete failed: %v", err)

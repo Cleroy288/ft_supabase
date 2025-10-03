@@ -11,6 +11,7 @@ import (
 // users is a map where JWT tokens are keys and CachedUser pointers are values.
 // usersByID is a map where UserIDs (UUID) are keys and CachedUser pointers are values.
 // mu is a read-write mutex for thread-safe access to the cache.
+// MaxSize is the maximum number of users allowed in cache (default 1000).
 //
 // Used in:
 // - Service struct - holds the cache instance
@@ -24,6 +25,7 @@ type UserCache struct {
 	users     map[string]*CachedUser
 	usersByID map[uuid.UUID]*CachedUser
 	mu        sync.RWMutex
+	MaxSize   int
 }
 
 // CachedUser represents a cached user session with authentication details.
@@ -217,4 +219,30 @@ type LoginResponse struct {
 // - UpdateUser() - builds request body for Supabase update endpoint
 type UpdateUserRequest struct {
 	Data map[string]any `json:"data"`
+}
+
+// RefreshTokenRequest represents the request payload for refreshing an access token.
+// RefreshToken is the refresh token obtained during login or registration.
+//
+// Used in:
+// - RefreshToken() - builds request body for Supabase token refresh endpoint
+type RefreshTokenRequest struct {
+	RefreshToken string `json:"refresh_token"`
+}
+
+// RefreshTokenResponse represents the response returned after token refresh.
+// Contains new access token, refresh token, and basic user information.
+//
+// Used in:
+// - RefreshToken() - returns this response to caller
+type RefreshTokenResponse struct {
+	AccessToken  string `json:"access_token"`
+	RefreshToken string `json:"refresh_token"`
+	ExpiresIn    int    `json:"expires_in"`
+	ExpiresAt    int64  `json:"expires_at"`
+	TokenType    string `json:"token_type"`
+	ID           string `json:"id"`
+	Email        string `json:"email"`
+	Username     string `json:"username"`
+	Role         string `json:"role"`
 }

@@ -1,4 +1,4 @@
-package ft_supabase_utils
+package ft_supabase
 
 import (
 	"bytes"
@@ -127,8 +127,8 @@ func (c *DefaultHTTPClient) Ft_SupabaseSendRequest(ctx context.Context, method, 
 	// print raw response for debugging
 	PrintRaw(fmt.Sprintf("RAW %s RESPONSE", method), bodyBytes)
 
-	// check response status
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+	// check response status (200 OK, 201 Created, 204 No Content)
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated && resp.StatusCode != http.StatusNoContent {
 		return nil, fmt.Errorf("%w (status %d): %s", ErrInvalidStatus, resp.StatusCode, string(bodyBytes))
 	}
 

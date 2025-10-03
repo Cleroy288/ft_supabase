@@ -7,11 +7,13 @@ import (
 )
 
 // NewUserCache creates a new UserCache instance.
-// Returns an initialized UserCache with empty user maps.
+// Returns an initialized UserCache with empty user maps and default max size of 1000.
 func NewUserCache() *UserCache {
+	Log("NewUserCache", "Creating new user cache with max size: 1000")
 	return &UserCache{
 		users:     make(map[string]*CachedUser),
 		usersByID: make(map[uuid.UUID]*CachedUser),
+		MaxSize:   1000,
 	}
 }
 
@@ -19,12 +21,77 @@ func NewUserCache() *UserCache {
 // token is the JWT access token used as the cache key.
 // user is the CachedUser pointer to store.
 // Also stores the user by UserID for lookup by ID.
+// If cache size reaches MaxSize, evicts oldest cached users first.
 // Thread-safe operation using write lock.
 func (c *UserCache) Set(token string, user *CachedUser) {
+	var (
+		now           time.Time
+		oldestToken   string
+		oldestUser    *CachedUser
+		currentUser   *CachedUser
+		needsEviction bool
+		expiredCount  int
+	)
+
 	c.mu.Lock()
 	defer c.mu.Unlock()
+
+	Logf("UserCache.Set", "Caching user - UserID: %s, Email: %s", user.UserID.String(), user.Email)
+
+	// check if cache is full and needs eviction
+	if len(c.users) >= c.MaxSize {
+		Logf("UserCache.Set", "Cache full (%d/%d), cleaning expired entries", len(c.users), c.MaxSize)
+
+		// first try to remove expired entries
+		now = time.Now()
+		expiredCount = 0
+		for t, u := range c.users {
+			if now.After(u.ExpiresAt) {
+				delete(c.users, t)
+				delete(c.usersByID, u.UserID)
+				expiredCount++
+			}
+		}
+
+		if expiredCount > 0 {
+			Logf("UserCache.Set", "Removed %d expired entries", expiredCount)
+		}
+
+		// if still at max capacity after cleanup, evict oldest entry
+		if len(c.users) >= c.MaxSize {
+			Logf("UserCache.Set", "Still at max capacity after cleanup, evicting oldest user")
+			needsEviction = true
+			for t, u := range c.users {
+				if oldestUser == nil || u.CachedAt.Before(oldestUser.CachedAt) {
+					oldestToken = t
+					oldestUser = u
+				}
+			}
+
+			// evict oldest user
+			if needsEviction && oldestUser != nil {
+				Logf("UserCache.Set", "Evicting oldest user - UserID: %s, Email: %s", oldestUser.UserID.String(), oldestUser.Email)
+				delete(c.users, oldestToken)
+				delete(c.usersByID, oldestUser.UserID)
+			}
+		}
+	}
+
+	// check if user already exists (update case)
+	currentUser, _ = c.usersByID[user.UserID]
+	if currentUser != nil {
+		Log("UserCache.Set", "Updating existing user in cache")
+		// remove old token entry if token changed
+		if currentUser.AccessToken != token {
+			delete(c.users, currentUser.AccessToken)
+		}
+	}
+
+	// store new user
 	c.users[token] = user
 	c.usersByID[user.UserID] = user
+
+	Logf("UserCache.Set", "Successfully cached user - Total users: %d", len(c.users))
 }
 
 // Get retrieves a user from the cache by their access token.
@@ -69,7 +136,7 @@ func (c *UserCache) Delete(token string) {
 // Thread-safe operation using write lock.
 func (c *UserCache) DeleteByUserID(userID uuid.UUID) {
 	var (
-		user *CachedUser
+		user   *CachedUser
 		exists bool
 	)
 
@@ -108,30 +175,49 @@ func (c *UserCache) IsValid(token string) bool {
 }
 
 // Cleanup removes all expired tokens from the cache.
-// Iterates through all cached users and removes expired ones.
+// Iterates through all cached users and removes expired ones from both indexes.
 // Thread-safe operation using write lock.
 func (c *UserCache) Cleanup() {
 	var (
-		now         time.Time
-		expiredKeys []string
+		now           time.Time
+		expiredTokens []string
+		expiredUIDs   []uuid.UUID
+		beforeCount   int
+		afterCount    int
 	)
 
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	now = time.Now()
-	expiredKeys = make([]string, 0)
+	beforeCount = len(c.users)
+	Logf("UserCache.Cleanup", "Starting cache cleanup - Current users: %d", beforeCount)
 
-	// collect expired keys
+	now = time.Now()
+	expiredTokens = make([]string, 0)
+	expiredUIDs = make([]uuid.UUID, 0)
+
+	// collect expired entries
 	for token, user := range c.users {
 		if now.After(user.ExpiresAt) {
-			expiredKeys = append(expiredKeys, token)
+			expiredTokens = append(expiredTokens, token)
+			expiredUIDs = append(expiredUIDs, user.UserID)
 		}
 	}
 
-	// delete expired users
-	for _, token := range expiredKeys {
+	// delete expired users from both maps
+	for _, token := range expiredTokens {
 		delete(c.users, token)
+	}
+	for _, userID := range expiredUIDs {
+		delete(c.usersByID, userID)
+	}
+
+	afterCount = len(c.users)
+
+	if len(expiredTokens) > 0 {
+		Logf("UserCache.Cleanup", "Removed %d expired entries - Remaining users: %d", len(expiredTokens), afterCount)
+	} else {
+		Logf("UserCache.Cleanup", "No expired entries found - Remaining users: %d", afterCount)
 	}
 }
 
@@ -169,4 +255,3 @@ func (c *UserCache) GetByUserID(userID uuid.UUID) (*CachedUser, bool) {
 
 	return user, true
 }
-

@@ -67,6 +67,8 @@ func main() {
         "anon-key",
         "service-role-key",
     )
+    // Prints: [ft_supabase] [NewService] Creating new Supabase service - ProjectID: project-id, ProjectURL: https://project.supabase.co
+    // Prints: [ft_supabase] [NewService] Successfully created Supabase service instance
 
     // Start automatic cache cleanup (runs every 24 hours)
     service.StartCacheCleanup()
@@ -117,7 +119,7 @@ The `Service` struct is the main entry point for all authentication operations.
 
 #### NewService
 
-Creates a new Supabase service instance.
+Creates a new Supabase service instance. Prints initialization status on creation.
 
 ```go
 func NewService(projectID, projectURL, anonKey, serviceKey string) *Service
@@ -130,6 +132,15 @@ func NewService(projectID, projectURL, anonKey, serviceKey string) *Service
 - `serviceKey` - Service role key for privileged server-side operations
 
 **Returns:** Initialized `*Service` with HTTP client and cache (max size: 1000)
+
+**Initialization Output:**
+```go
+service := ft_supabase.NewService("project-id", "https://project.supabase.co", "anon-key", "service-key")
+// Prints: [ft_supabase] [NewService] Creating new Supabase service - ProjectID: project-id, ProjectURL: https://project.supabase.co
+// Prints: [ft_supabase] [NewService] Successfully created Supabase service instance
+```
+
+This helps verify the service was initialized correctly with the expected configuration.
 
 ---
 

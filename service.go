@@ -19,44 +19,6 @@ var (
 	ErrMissingMetadata   = errors.New("required metadata field is missing or invalid")
 )
 
-// getStringMetadata safely extracts a string value from a metadata map.
-// data is the metadata map to extract from.
-// key is the metadata field key to extract.
-// Returns the string value and true if found and valid, empty string and false otherwise.
-func getStringMetadata(data map[string]any, key string) (string, bool) {
-	var (
-		val    any
-		strVal string
-		exists bool
-		ok     bool
-	)
-
-	Logf("getStringMetadata", "Extracting metadata key: %s", key)
-
-	// check if key exists
-	val, exists = data[key]
-	if !exists {
-		Logf("getStringMetadata", "Key '%s' not found in metadata", key)
-		return "", false
-	}
-
-	// check if value is nil
-	if val == nil {
-		Logf("getStringMetadata", "Key '%s' has nil value", key)
-		return "", false
-	}
-
-	// type assert to string
-	strVal, ok = val.(string)
-	if !ok {
-		Logf("getStringMetadata", "Key '%s' value is not a string", key)
-		return "", false
-	}
-
-	Logf("getStringMetadata", "Successfully extracted metadata key '%s': %s", key, strVal)
-	return strVal, true
-}
-
 // Service represents a Supabase HTTP client.
 // ProjectID is the Supabase project identifier.
 // ProjectURL is the base URL for Supabase project API.
@@ -122,6 +84,44 @@ func NewService(projectID, projectURL, anonKey, serviceKey string) *Service {
 
 	Log("NewService", "Successfully created Supabase service instance")
 	return service
+}
+
+// getStringMetadata safely extracts a string value from a metadata map.
+// data is the metadata map to extract from.
+// key is the metadata field key to extract.
+// Returns the string value and true if found and valid, empty string and false otherwise.
+func getStringMetadata(data map[string]any, key string) (string, bool) {
+	var (
+		val    any
+		strVal string
+		exists bool
+		ok     bool
+	)
+
+	Logf("getStringMetadata", "Extracting metadata key: %s", key)
+
+	// check if key exists
+	val, exists = data[key]
+	if !exists {
+		Logf("getStringMetadata", "Key '%s' not found in metadata", key)
+		return "", false
+	}
+
+	// check if value is nil
+	if val == nil {
+		Logf("getStringMetadata", "Key '%s' has nil value", key)
+		return "", false
+	}
+
+	// type assert to string
+	strVal, ok = val.(string)
+	if !ok {
+		Logf("getStringMetadata", "Key '%s' value is not a string", key)
+		return "", false
+	}
+
+	Logf("getStringMetadata", "Successfully extracted metadata key '%s': %s", key, strVal)
+	return strVal, true
 }
 
 // RegisterUser registers a new user with Supabase Auth API.
